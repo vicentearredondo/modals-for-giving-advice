@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Advice Hotline</title>
+<style>
+:root { --ink: #1B1B1B; --lead: #6E6E6E; --paper: #FCFCFB; --line: #DADDDF; --yellow: #FFE27A; --good: #2E9E5B; --bad: #DB3A34; color-scheme: light; }
+html, body { height: 100%; }
+body { margin: 0; color: var(--ink); background-color: var(--paper); background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 30px 30px; font-family: "Comic Sans MS", "Trebuchet MS", sans-serif; }
+main { min-height: 100%; box-sizing: border-box; display: grid; align-content: center; gap: 18px; padding-block: max(20px, env(safe-area-inset-top, 0px)) max(20px, env(safe-area-inset-bottom, 0px)); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); max-width: 560px; margin-inline: auto; text-align: center; animation: in .35s ease both; }
+@keyframes in { from { opacity: 0; transform: translateY(10px); } }
+canvas { display: block; margin-inline: auto; max-width: 100%; }
+button { width: 100%; background: var(--paper); border: 4px solid var(--ink); border-radius: 18px 14px 19px 13px / 14px 19px 13px 18px; padding: 14px 12px; cursor: pointer; color: inherit; font: inherit; transition: transform .12s ease, background-color .15s linear; -webkit-tap-highlight-color: transparent; }
+button:active { transform: scale(.97); }
+button.picked { background: var(--yellow); }
+button:disabled { cursor: default; }
+button:disabled:not(.picked) { opacity: .4; }
+.hl { background: var(--yellow); border-radius: 12px; padding: 8px 12px; justify-self: center; }
+</style>
+</head>
+<body>
+<main id="app" aria-live="polite"></main>
+<script src="assets/letters.js"></script>
+<script>
+(() => {
+  const FIREBASE_URL = "https://modals-for-giving-advice-default-rtdb.firebaseio.com";
+  const params = new URLSearchParams(location.search);
+  const DB = location.hostname === "localhost" && params.get("db") || FIREBASE_URL;
+  const room = (params.get("room") || "").toUpperCase().replace(/[^A-Z]/g, "");
+  const app = document.getElementById("app");
+  const INK = "#1B1B1B", LEAD = "#6E6E6E", GOOD = "#2E9E5B", BAD = "#DB3A34";
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  const sheet = new Image();
+  const ready = new Promise((ok) => { sheet.onload = ok; sheet.onerror = ok; });
+  sheet.src = ATLAS.img;
+  const advance = (ch) => { const m = ATLAS.m[ch]; return m ? m[6] + .09 : .46; };
+  const width = (t, size) => [...t].reduce((n, ch) => n + advance(ch) * size, 0);
+  function wrap(text, size, max) {
+    const lines = []; let line = "";
+    for (const word of text.split(" ")) {
+      const next = line ? line + " " + word : word;
+      if (width(next, size) > max && line) { lines.push(line); line = word; } else line = next;
+    }
+    if (line) lines.push(line);
+    return lines;
+  }
+  function crayon(text, size, color = INK, maxWidth = Math.min(innerWidth, 560) - 56) {
+    const lines = wrap(text, size, maxWidth), LH = size * 1.42, w = Math.ceil(Math.max(...lines.map((l) => width(l, size)))) + 4, h = Math.ceil(lines.length * LH + size * .22);
+    const c = document.createElement("canvas");
+    c.width = w * dpr; c.height = h * dpr; c.style.width = w + "px"; c.style.height = h + "px";
+    c.setAttribute("role", "img"); c.setAttribute("aria-label", text);
+    const x = c.getContext("2d");
+    x.scale(dpr, dpr); x.imageSmoothingQuality = "high";
+    lines.forEach((line, n) => {
+      let px = (w - width(line, size)) / 2;
+      const base = (n + 1) * LH - size * .1;
+      for (const ch of line) {
+        const m = ATLAS.m[ch];
+        if (m) x.drawImage(sheet, m[0], m[1], m[2], m[3], px - m[5] * size, base + m[4] * size, m[2] / ATLAS.px * size, m[3] / ATLAS.px * size);
+        px += advance(ch) * size;
+      }
+    });
+    if (color !== INK) { x.globalCompositeOperation = "source-in"; x.fillStyle = color; x.fillRect(0, 0, w, h); }
+    return c;
+  }
+  const show = (...nodes) => { app.style.animation = "none"; void app.offsetWidth; app.style.animation = ""; app.replaceChildren(...nodes); };
+  const tag = (el) => { const d = document.createElement("div"); d.className = "hl"; d.append(el); return d; };
+  const url = (p) => `${DB}/rooms/${room}${p}.json`;
+  let id = "";
+  try { id = localStorage.getItem("hotline-id") || ""; } catch (e) { /* private mode */ }
+  if (!id) { id = "p" + Math.random().toString(36).slice(2, 12); try { localStorage.setItem("hotline-id", id); } catch (e) { /* keep it for this visit */ } }
+  let team = "", state = null, chosen = null, chosenRound = -1;
+  const teamTag = () => team ? tag(crayon(`Team ${team}`, 26)) : document.createTextNode("");
+  function vibrate(ms) { try { navigator.vibrate?.(ms); } catch (e) { /* not supported */ } }
+  function render() {
+    const s = state;
+    if (!s) return show(crayon("Connecting...", 30, LEAD));
+    if (s.phase === "lobby") return show(crayon("You're in!", 46), teamTag(), crayon("Look at the screen. The game starts soon.", 24, LEAD));
+    if (s.phase === "call") {
+      const done = chosenRound === s.round;
+      const btns = s.opts.map((o, i) => {
+        const b = document.createElement("button"); b.type = "button"; b.setAttribute("aria-label", o);
+        b.append(crayon(`${"ABC"[i]}.  ${o}`, 24));
+        b.disabled = done; if (done && chosen === i) b.classList.add("picked");
+        b.addEventListener("click", () => answer(s.round, i));
+        return b;
+      });
+      return show(teamTag(), crayon(s.problem, 26), ...btns, crayon(done ? "Answer locked!" : "Pick the best advice!", 22, LEAD));
+    }
+    if (s.phase === "reveal") {
+      const mine = chosenRound === s.round ? chosen : null, right = mine === s.correct;
+      if (mine !== null) vibrate(right ? 60 : [50, 40, 50]);
+      return show(crayon(mine === null ? "Time's up!" : right ? "Correct!" : "Not quite!", 48, mine === null ? LEAD : right ? GOOD : BAD), crayon(s.why || "", 24, LEAD), crayon(`Team A: ${s.scores?.A ?? 0}`, 26), crayon(`Team B: ${s.scores?.B ?? 0}`, 26), crayon("Look at the screen.", 22, LEAD));
+    }
+    if (s.phase === "end") {
+      const title = !s.win ? "It's a tie!" : s.win === team ? "Your team won!" : `Team ${s.win} wins!`;
+      return show(crayon(title, 46), teamTag(), crayon(`Team A: ${s.scores?.A ?? 0}`, 28), crayon(`Team B: ${s.scores?.B ?? 0}`, 28), crayon("Thanks for playing!", 24, LEAD));
+    }
+  }
+  function answer(round, i) {
+    if (chosenRound === round) return;
+    chosen = i; chosenRound = round; vibrate(20); render();
+    fetch(url(`/answers/r${round}/${id}`), { method: "PUT", body: JSON.stringify({ c: i, at: { ".sv": "timestamp" } }) }).catch(() => { chosenRound = -1; chosen = null; render(); });
+  }
+  async function start() {
+    await ready;
+    if (!room) return show(crayon("Scan the QR code on the screen to play.", 30));
+    show(crayon("Connecting...", 30, LEAD));
+    try {
+      const got = await (await fetch(url("/state"))).json();
+      if (!got) return show(crayon("Game not found.", 36), crayon("Scan the QR code again.", 24, LEAD));
+      await fetch(url(`/players/${id}`), { method: "PATCH", body: JSON.stringify({ joined: { ".sv": "timestamp" } }) });
+    } catch (e) {
+      return show(crayon("No connection.", 36), crayon("Check your internet and scan again.", 24, LEAD));
+    }
+    const st = new EventSource(url("/state"));
+    const onState = (e) => { const m = JSON.parse(e.data); if (m.path === "/" && m.data) { state = m.data; render(); } };
+    st.addEventListener("put", onState); st.addEventListener("patch", onState);
+    const me = new EventSource(url(`/players/${id}`));
+    const onMe = (e) => { const m = JSON.parse(e.data); const t = m.path === "/" ? m.data?.team : m.path === "/team" ? m.data : null; if (t && t !== team) { team = t; render(); } };
+    me.addEventListener("put", onMe); me.addEventListener("patch", onMe);
+  }
+  start();
+})();
+</script>
+</body>
+</html>

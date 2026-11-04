@@ -1,0 +1,1099 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Modals for Giving Advice</title>
+<style>
+/* Layout: one full-screen sheet of grid paper; ink is drawn stroke by stroke in SVG and rubbed out on a canvas that repaints the paper. */
+:root { --ink: #1B1B1B; --lead: #6E6E6E; --paper: #FCFCFB; --ui: "Comic Sans MS", "Trebuchet MS", sans-serif; color-scheme: light; }
+html, body { height: 100%; }
+body { margin: 0; overflow: hidden; background: var(--paper); color: var(--ink); font-family: var(--ui); }
+#desk { position: fixed; inset: 0; perspective: 2200px; perspective-origin: 50% 0; background: #E9E9E7; }
+@property --shade { syntax: "<number>"; inherits: true; initial-value: 0; }
+.sheet { will-change: transform; position: absolute; inset: 0; background-color: var(--paper); transform-origin: 50% 0; backface-visibility: hidden; }
+.sheet canvas { position: absolute; inset: 0; width: 100%; height: 100%;  }
+.sheet::after { content: ""; position: absolute; inset: 0; background: linear-gradient(#000, transparent 80%); opacity: var(--shade, 0); pointer-events: none; }
+#over, #ink { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#ink { z-index: 3; }
+#pen { --cr: #1B1B1B; opacity: 0; transition: opacity .22s linear; }
+#over { z-index: 4; }
+#smear { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; filter: blur(7px); transition: opacity .6s linear; }
+#eraser { position: fixed; left: 0; top: 0; z-index: 5; width: clamp(120px, 12vw, 200px); aspect-ratio: 170 / 92; margin: calc(clamp(120px, 12vw, 200px) * -.27) 0 0 calc(clamp(120px, 12vw, 200px) * -.5); opacity: 0; pointer-events: none; will-change: transform; transition: opacity .12s linear; }
+path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.bar { position: fixed; z-index: 6; right: max(16px, env(safe-area-inset-right, 0px)); bottom: max(12px, env(safe-area-inset-bottom, 0px)); display: flex; gap: 8px; align-items: center; }
+.bar button { font: inherit; color: var(--ink); background: none; border: 0; padding: 4px 8px; cursor: pointer; display: grid; place-items: center; transition: transform .18s ease, opacity .18s linear; }
+.bar button canvas { display: block; }
+.bar button:hover:enabled { transform: scale(1.1); }
+.bar button:disabled { opacity: .28; cursor: default; }
+.bar button:focus-visible { outline: 3px dashed var(--lead); outline-offset: 2px; border-radius: 8px; }
+#startBtn { --k: min(100vw / 1600, 100vh / 900); position: fixed; z-index: 5; left: 50%; top: calc(50% + var(--k) * 205); width: calc(var(--k) * 380); height: calc(var(--k) * 150); transform: translate(-50%, -50%); background: none; border: 0; padding: 0; cursor: pointer; outline: none; }
+.startart { transition: transform .2s ease, opacity .22s linear; transform-origin: 50% 72%; }
+.startart.hot { transform: scale(1.06); }
+.startart.gone { opacity: 0; }
+.talk { transform-origin: 74% 90%; animation: talk .28s ease-in-out infinite alternate; }
+@keyframes talk { from { transform: rotate(-.9deg) translateY(2px); } to { transform: rotate(.9deg) translateY(-5px); } }
+.ring { transform-origin: 80% 45%; animation: ring .5s ease-in-out infinite alternate; }
+@keyframes ring { from { transform: rotate(-1.6deg); } to { transform: rotate(1.6deg); } }
+@media (prefers-reduced-motion: reduce) { .ring, .talk { animation: none; } }
+.gbtn { position: fixed; z-index: 5; background: none; border: 0; padding: 0; cursor: pointer; border-radius: 10px; transition: background-color .15s linear; }
+.gbtn:hover { background: rgba(255, 226, 122, .25); }
+.gbtn:focus-visible { outline: 3px dashed #6E6E6E; outline-offset: 2px; }
+.qrcode { position: fixed; z-index: 3; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+
+<div id="desk"></div>
+<svg id="ink" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+  <defs>
+    <linearGradient id="crShade" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#000" stop-opacity=".42"/><stop offset=".24" stop-color="#fff" stop-opacity=".34"/><stop offset=".52" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".5"/>
+    </linearGradient>
+  </defs>
+  <g id="pen">
+    <g id="penTilt" transform="rotate(35) scale(1.32)">
+      <path d="M-1.8 -1.5 Q0 -3.5 1.8 -1.5 L11 -32 Q0 -36 -11 -32 Z" style="fill:var(--cr);stroke:none"/>
+      <path d="M-1.8 -1.5 Q0 -3.5 1.8 -1.5 L11 -32 Q0 -36 -11 -32 Z" style="fill:url(#crShade);stroke:none"/>
+      <rect x="-11" y="-44" width="22" height="14" fill="var(--cr)"/>
+      <rect x="-11" y="-44" width="22" height="14" fill="url(#crShade)"/>
+      <path d="M-12.5 -38 l3.1 3 3.1 -3 3.1 3 3.1 -3 3.1 3 3.1 -3 3.1 3 3.1 -3 V-130 H-12.5 Z" style="fill:#F3F2EE;stroke:none"/>
+      <rect x="-12.5" y="-58" width="25" height="8" fill="var(--cr)"/><rect x="-12.5" y="-47" width="25" height="2.6" fill="var(--cr)"/>
+      <rect x="-12.5" y="-120" width="25" height="8" fill="var(--cr)"/><rect x="-12.5" y="-109" width="25" height="2.6" fill="var(--cr)"/>
+      <ellipse cx="0" cy="-82" rx="8" ry="17" fill="var(--cr)"/><ellipse cx="0" cy="-82" rx="4.4" ry="11" fill="#F3F2EE"/>
+      <path d="M-12.5 -38 l3.1 3 3.1 -3 3.1 3 3.1 -3 3.1 3 3.1 -3 3.1 3 3.1 -3 V-130 H-12.5 Z" style="fill:url(#crShade);stroke:none"/>
+      <rect x="-11" y="-136" width="22" height="7" rx="3" fill="var(--cr)"/><rect x="-11" y="-136" width="22" height="7" rx="3" fill="url(#crShade)"/>
+    </g>
+  </g>
+</svg>
+<canvas id="over" aria-hidden="true"></canvas>
+<svg id="eraser" viewBox="0 0 170 92" aria-hidden="true">
+  <defs>
+    <linearGradient id="erRub" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".6" stop-color="#F3F3F1"/><stop offset="1" stop-color="#D2D2CE"/></linearGradient>
+    <linearGradient id="erBand" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#3C3C3B"/><stop offset=".55" stop-color="#1F1F1E"/><stop offset="1" stop-color="#0F0F0F"/></linearGradient>
+    <radialGradient id="erShade"><stop offset="0" stop-color="#000" stop-opacity=".26"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+  </defs>
+  <ellipse cx="88" cy="74" rx="82" ry="16" fill="url(#erShade)"/>
+  <rect x="6" y="10" width="158" height="58" rx="17" fill="url(#erRub)" stroke="#A9A9A5" stroke-width="1.5"/>
+  <path d="M60 10 H147 Q164 10 164 27 V51 Q164 68 147 68 H60 Z" style="fill:url(#erBand);stroke:none"/>
+    <path d="M72 20 H150" style="stroke:#FFFFFF;stroke-width:3;opacity:.22"/>
+  </svg>
+<canvas id="smear" aria-hidden="true"></canvas>
+<button id="startBtn" type="button" aria-label="Start"></button>
+<nav class="bar" aria-label="Controls">
+  <button id="soundBtn" type="button" aria-pressed="true"></button>
+  <button id="prev" type="button"></button>
+  <button id="next" type="button"></button>
+</nav>
+
+<script src="assets/letters.js"></script>
+<script src="assets/qrcode.js"></script>
+<script>
+(() => {
+  const NS = "http://www.w3.org/2000/svg";
+  const $ = (id) => document.getElementById(id);
+  const INK = "#1B1B1B", LEAD = "#6E6E6E", BLUE = "#2F6FDE", RED = "#DB3A34", GREEN = "#2E9E5B", ORANGE = "#F08C1A", YELLOW = "#FFE27A";
+  const desk = $("desk"), pen = $("pen"), over = $("over"), eraser = $("eraser"), ctx = over.getContext("2d");
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let skip = false, busy = false, seed = 7;
+  const wait = (ms) => skip || still ? Promise.resolve() : new Promise((r) => { const t0 = performance.now(); const f = (n) => (skip || n - t0 >= ms) ? r() : requestAnimationFrame(f); requestAnimationFrame(f); });
+  const rand = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647 - .5; };
+  const easeWrite = (t) => t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+
+  /* ---------- sound (all synthesised, no audio files) ---------- */
+  const Sound = (() => {
+    let ac = null, master, buf, scrGain, rubGain, on = true, ringGain = null;
+    const loop = (freq, q) => {
+      const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+      src.buffer = buf; src.loop = true; f.type = "bandpass"; f.frequency.value = freq; f.Q.value = q; g.gain.value = 0;
+      src.connect(f).connect(g).connect(master); src.start();
+      return g;
+    };
+    function init() {
+      if (ac) { ac.resume?.(); return; }
+      try {
+        ac = new (window.AudioContext || window.webkitAudioContext)();
+        master = ac.createGain(); master.gain.value = 1; master.connect(ac.destination);
+        buf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+        scrGain = loop(1500, .9); rubGain = loop(620, .7);
+      } catch (e) { ac = null; }
+    }
+    const level = (g, v) => { if (ac && on) g.gain.setTargetAtTime(v, ac.currentTime, .018); };
+    function tone(freq, at, dur, peak, type = "sine") {
+      const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime + at;
+      o.type = type; o.frequency.value = freq;
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak, t + .012); g.gain.exponentialRampToValueAtTime(.001, t + dur);
+      o.connect(g).connect(master); o.start(t); o.stop(t + dur + .02);
+    }
+    function burst(from, to, dur, peak) {
+      const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain(), t = ac.currentTime;
+      s.buffer = buf; f.type = "bandpass"; f.Q.value = .8;
+      f.frequency.setValueAtTime(from, t); f.frequency.exponentialRampToValueAtTime(to, t + dur);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak, t + dur * .25); g.gain.exponentialRampToValueAtTime(.001, t + dur);
+      s.connect(f).connect(g).connect(master); s.start(t, Math.random()); s.stop(t + dur + .02);
+    }
+    const ok = () => ac && on && !skip && !still;
+    function stopRing() {
+      if (!ringGain) return;
+      ringGain.gain.cancelScheduledValues(ac.currentTime);
+      ringGain.gain.setTargetAtTime(0, ac.currentTime, .015);
+      ringGain = null;
+    }
+    function ring(cycles) {
+      if (!ok()) return;
+      stopRing();
+      const out = ac.createGain(), trem = ac.createGain(), lfo = ac.createOscillator(), t = ac.currentTime + .05;
+      lfo.type = "square"; lfo.frequency.value = 21; lfo.connect(trem.gain); trem.gain.value = .5;
+      [960, 1210, 1960].forEach((f, i) => { const o = ac.createOscillator(), g = ac.createGain(); o.type = "triangle"; o.frequency.value = f; g.gain.value = [.16, .14, .05][i]; o.connect(g).connect(trem); o.start(t); o.stop(t + cycles * 1.75); });
+      trem.connect(out).connect(master); lfo.start(t); lfo.stop(t + cycles * 1.75);
+      out.gain.value = 0;
+      for (let i = 0; i < cycles; i++) { const a = t + i * 1.75; out.gain.setValueAtTime(0, a); out.gain.linearRampToValueAtTime(1, a + .02); out.gain.setValueAtTime(1, a + 1.05); out.gain.linearRampToValueAtTime(0, a + 1.1); }
+      ringGain = out;
+    }
+    function blips(text, end) {
+      if (!ok()) return end();
+      const syl = text.replace(/[^a-z ]/gi, "").split(/(?<=[aeiouy])/i).filter(Boolean);
+      syl.forEach((s, i) => { const f = 430 + (s.charCodeAt(0) % 9) * 34 + Math.sin(i) * 60; tone(f, i * .085, .08, .1, "square"); tone(f * 1.5, i * .085, .07, .05); });
+      setTimeout(end, syl.length * 85 + 120);
+    }
+    function pepeVoice() {
+      const vs = (window.speechSynthesis?.getVoices() || []).filter((v) => /^en/i.test(v.lang));
+      return vs.find((v) => /Google US English|Samantha|Aria|Jenny|Zira/i.test(v.name)) || vs[0] || null;
+    }
+    function say(text, onStart, onEnd) {
+      const end = () => { onEnd?.(); };
+      if (!ok()) return end();
+      onStart?.();
+      const voice = pepeVoice();
+      if (!voice) return blips(text, end);
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.voice = voice; u.lang = voice.lang; u.pitch = 1.75; u.rate = 1.12; u.volume = 1;
+      u.onend = end; u.onerror = end;
+      speechSynthesis.speak(u);
+    }
+    const hush = () => { try { window.speechSynthesis?.cancel(); } catch (e) { /* not available */ } };
+    return {
+      init, ring, stopRing, say, hush,
+      tada: () => { if (ok()) [523, 659, 784, 1047].forEach((f, i) => tone(f, i * .13, .4, .13, "triangle")); },
+      scratch: (v) => { if (ac) level(scrGain, v); },
+      rub: (v) => { if (ac) level(rubGain, v); },
+      flip: () => { if (ok()) { burst(3200, 500, .5, .4); } },
+      ding: () => { if (ok()) { tone(880, 0, .3, .16); tone(1320, .09, .42, .13); } },
+      nope: () => { if (ok()) { tone(170, 0, .2, .14, "triangle"); tone(130, .1, .26, .14, "triangle"); } },
+      pick: () => { if (ok()) { burst(1800, 700, .07, .5); tone(120, .02, .12, .22); } },
+      toggle() { on = !on; if (!on) { hush(); if (ac) { scrGain.gain.value = 0; rubGain.gain.value = 0; } stopRing(); } return on; },
+    };
+  })();
+
+  /* ---------- paper ---------- */
+  const CELL = 34;
+  let tile, pattern, dpr = 1;
+  function makePaper() {
+    dpr = Math.min(devicePixelRatio || 1, 1.5);
+    tile = document.createElement("canvas");
+    tile.width = tile.height = Math.round(CELL * dpr);
+    const c = tile.getContext("2d");
+    c.fillStyle = "#FCFCFB"; c.fillRect(0, 0, tile.width, tile.height);
+    c.strokeStyle = "#DADDDF"; c.lineWidth = Math.max(1, dpr);
+    c.beginPath(); c.moveTo(tile.width - .5, 0); c.lineTo(tile.width - .5, tile.height); c.moveTo(0, tile.height - .5); c.lineTo(tile.width, tile.height - .5); c.stroke();
+    over.width = innerWidth * dpr; over.height = innerHeight * dpr;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    pattern = ctx.createPattern(tile, "repeat");
+    pattern.setTransform(new DOMMatrix().scale(1 / dpr));
+    V.k = Math.min(innerWidth / 1600, innerHeight / 900); V.ox = (innerWidth - 1600 * V.k) / 2; V.oy = (innerHeight - 900 * V.k) / 2;
+    for (const k in stamps) delete stamps[k];
+    for (const k in glyphs) delete glyphs[k];
+    document.querySelectorAll(".sheet").forEach(paint);
+    if (sheet) { sheet.canvas.width = innerWidth * dpr; sheet.canvas.height = innerHeight * dpr; redraw(sheet); }
+  }
+  const paint = (el) => { el.style.backgroundImage = `url(${tile.toDataURL()})`; el.style.backgroundSize = `${CELL}px ${CELL}px`; };
+  const toScreen = (x, y) => {
+    const k = Math.min(innerWidth / 1600, innerHeight / 900);
+    return [(innerWidth - 1600 * k) / 2 + x * k, (innerHeight - 900 * k) / 2 + y * k, k];
+  };
+
+  /* ---------- sheets ---------- */
+  let sheet;
+  const V = { k: 1, ox: 0, oy: 0 };
+  const makeCanvas = () => { const c = document.createElement("canvas"); c.width = innerWidth * dpr; c.height = innerHeight * dpr; return c; };
+  function newSheet(under) {
+    const el = document.createElement("div");
+    el.className = "sheet"; paint(el);
+    const canvas = makeCanvas();
+    el.append(canvas);
+    under ? desk.prepend(el) : desk.append(el);
+    return { el, canvas, ctx: canvas.getContext("2d"), groups: [] };
+  }
+
+  /* ---------- crayon engine: strokes are stamped onto a canvas, one waxy blob at a time ---------- */
+  const stamps = {};
+  function stamp(color, R) {
+    const key = color + R;
+    if (stamps[key]) return stamps[key];
+    const out = [], S = Math.ceil(R * 2.9), c = S / 2;
+    const rgb = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16));
+    for (let v = 0; v < 5; v++) {
+      const cv = document.createElement("canvas"); cv.width = cv.height = S;
+      const x = cv.getContext("2d"), im = x.createImageData(S, S);
+      const lobes = [...Array(7)].map(() => [Math.random() * 6.3, .9 + Math.random() * .3]);
+      for (let py = 0; py < S; py++) for (let px = 0; px < S; px++) {
+        const dx = px - c, dy = py - c, d = Math.hypot(dx, dy) / R, ang = Math.atan2(dy, dx);
+        let edge = 1;
+        for (const [a, k] of lobes) edge = Math.max(edge, k + .22 * Math.cos((ang - a) * 3));
+        const on = d < .62 ? Math.random() < .96 : d < edge ? Math.random() < 1.1 - (d - .62) / (edge - .62 + .001) * .75 : d < 1.42 ? Math.random() < .1 : false;
+        if (!on) continue;
+        const i = (py * S + px) * 4;
+        im.data[i] = rgb[0]; im.data[i + 1] = rgb[1]; im.data[i + 2] = rgb[2]; im.data[i + 3] = 200 + Math.random() * 55;
+      }
+      x.putImageData(im, 0, 0);
+      out.push(cv);
+    }
+    return (stamps[key] = { out, S });
+  }
+  const dev = (x, y) => [(V.ox + x * V.k) * dpr, (V.oy + y * V.k) * dpr];
+  function stampRange(g, it, from, to) {
+    if (it.glyph) return stampGlyph(g, it, from, to);
+    const c = g.ctx, R = Math.max(1, Math.round(it.width / 2 * V.k * dpr)), st = stamp(it.color, R);
+    c.globalCompositeOperation = g.comp || "source-over";
+    for (let i = from; i < to; i++) {
+      const [x, y] = dev(it.pts[i][0], it.pts[i][1]);
+      c.drawImage(st.out[i % 5], x - st.S / 2 + (i * 7 % 3) - 1, y - st.S / 2 + (i * 11 % 3) - 1);
+    }
+    c.globalCompositeOperation = "source-over";
+  }
+  function G(o = {}) {
+    const g = { items: [], comp: null, canvas: null, ctx: sheet.ctx };
+    if (o.own) { g.canvas = makeCanvas(); sheet.el.append(g.canvas); g.ctx = g.canvas.getContext("2d"); }
+    g.remove = () => { sheet.groups = sheet.groups.filter((x) => x !== g); g.canvas?.remove(); };
+    sheet.groups.push(g);
+    return g;
+  }
+  function redraw(sh) {
+    sh.ctx.clearRect(0, 0, sh.canvas.width, sh.canvas.height);
+    for (const g of sh.groups) {
+      if (g.canvas) { g.canvas.width = innerWidth * dpr; g.canvas.height = innerHeight * dpr; }
+      for (const it of g.items) stampRange(g, it, 0, it.done);
+    }
+  }
+  function clearSheet() { sheet.groups.forEach((g) => g.canvas?.remove()); sheet.groups = []; sheet.ctx.clearRect(0, 0, sheet.canvas.width, sheet.canvas.height); }
+  const pen_ = { x: 0, y: 0, a: 35, c: "", on: false };
+  function setPen(x, y, snap) {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    pen_.x = x; pen_.y = y;
+    let goal = 35 + Math.max(0, Math.min(1, (250 - y) / 150)) * 52;
+    goal -= Math.max(0, Math.min(1, (x - 1330) / 170)) * 90;
+    pen_.a += (goal - pen_.a) * (snap ? 1 : .12);
+    pen.setAttribute("transform", `translate(${x.toFixed(1)} ${y.toFixed(1)})`);
+    $("penTilt").setAttribute("transform", `rotate(${pen_.a.toFixed(1)}) scale(1.32)`);
+  }
+  function makeItem(g, d, color, width, tf = { ox: 0, oy: 0, sx: 1, sy: 1 }) {
+    const el = document.createElementNS(NS, "path");
+    el.setAttribute("d", d);
+    $("ink").append(el);
+    const raw = el.getTotalLength(), avg = (tf.sx + tf.sy) / 2, gap = Math.max(.9, width * .16), n = Math.max(2, Math.ceil(raw * avg / gap)), pts = [];
+    for (let i = 0; i <= n; i++) { const q = el.getPointAtLength(raw * i / n); pts.push([tf.ox + q.x * tf.sx, tf.oy + q.y * tf.sy]); }
+    el.remove();
+    const it = { g, pts, color, width, size: raw * avg, done: 0 };
+    g.items.push(it);
+    return it;
+  }
+  function draw(items, opts = {}) {
+    const showPen = opts.pen !== false;
+    return new Promise((done) => {
+      const GAP = 26;
+      let total = 0;
+      items.forEach((it) => { it.at = total; total += it.size + GAP; });
+      total -= GAP;
+      const dur = opts.dur ?? Math.min(3000, Math.max(320, total / 1.15));
+      const put = (it, n) => { if (n > it.done) { stampRange(it.g, it, it.done, n); it.done = n; } };
+      const finish = () => {
+        Sound.scratch(0);
+        items.forEach((it) => put(it, it.pts.length));
+        if (showPen && !skip && !still && items.length) { const p = items[items.length - 1].pts.at(-1); setPen(p[0], p[1]); }
+        done();
+      };
+      if (skip || still || opts.instant || !items.length) return finish();
+      const first = items[0].pts[0], sx = pen_.x, sy = pen_.y;
+      const hop = showPen && pen_.on ? Math.min(260, Math.hypot(first[0] - sx, first[1] - sy) / 2.4) : 0;
+      if (showPen) {
+        pen_.c = items[0].color; pen.style.setProperty("--cr", pen_.c);
+        if (!pen_.on) { setPen(first[0], first[1], true); pen_.on = true; }
+        pen.style.opacity = 1;
+      }
+      const t0 = performance.now() + hop;
+      const frame = (now) => {
+        if (skip) return finish();
+        if (hop > 0 && now < t0) {
+          const k = easeWrite(Math.max(0, 1 - (t0 - now) / hop));
+          setPen(sx + (first[0] - sx) * k, sy + (first[1] - sy) * k);
+          return requestAnimationFrame(frame);
+        }
+        const t = Math.max(0, Math.min(1, (now - t0) / dur)), d = total * easeWrite(t);
+        let px = null, py = null, prev = null, inking = false;
+        for (const it of items) {
+          const local = (d - it.at) / it.size;
+          if (local <= 0) {
+            if (px === null && prev) { const k = (d - prev.at - prev.size) / GAP, a = prev.pts.at(-1), b = it.pts[0]; px = a[0] + (b[0] - a[0]) * k; py = a[1] + (b[1] - a[1]) * k; }
+            break;
+          }
+          const n = Math.min(it.pts.length, Math.ceil(it.pts.length * local));
+          put(it, n);
+          if (local < 1) { [px, py] = it.pts[n - 1]; inking = true; if (showPen && it.color !== pen_.c) { pen_.c = it.color; pen.style.setProperty("--cr", it.color); } }
+          prev = it;
+        }
+        Sound.scratch(inking ? .13 * (.6 + .4 * Math.abs(Math.sin(d / 20))) : 0);
+        if (px !== null && showPen) setPen(pen_.x + (px - pen_.x) * .5, pen_.y + (py - pen_.y) * .5);
+        t < 1 ? requestAnimationFrame(frame) : finish();
+      };
+      requestAnimationFrame(frame);
+    });
+  }
+
+  /* ---------- crayon letters, cut from the reference sheets ---------- */
+  const SHEET = new Image();
+  const sheetReady = new Promise((ok) => { SHEET.onload = ok; SHEET.onerror = ok; });
+  SHEET.src = ATLAS.img;
+  const SPACE = .46, TRACK = .09;
+  function measure(str, size) {
+    const xs = []; let x = 0;
+    for (const ch of str) {
+      xs.push(x);
+      const m = ATLAS.m[ch];
+      x += (m ? m[6] + TRACK : SPACE) * size;
+    }
+    xs.push(x);
+    return { w: x, xs };
+  }
+  const glyphs = {};
+  function glyphBitmap(ch, color, w, h) {
+    const key = ch + color + w;
+    if (glyphs[key]) return glyphs[key];
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    const x = c.getContext("2d"), m = ATLAS.m[ch];
+    x.imageSmoothingQuality = "high";
+    x.drawImage(SHEET, m[0], m[1], m[2], m[3], 0, 0, w, h);
+    x.globalCompositeOperation = "source-in";
+    x.fillStyle = color; x.fillRect(0, 0, w, h);
+    return (glyphs[key] = c);
+  }
+  function makeGlyph(g, ch, color, x, y, w, h) {
+    const pts = [], R = 6, C = 6;
+    for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) {
+      const cc = r % 2 ? C - 1 - c : c;
+      pts.push([x + w * (cc + .5) / C, y + h * (r + .5) / R, cc, r]);
+    }
+    const it = { g, pts, color, glyph: { ch, x, y, w, h, R, C }, size: 30 + w * .9, done: 0 };
+    g.items.push(it);
+    return it;
+  }
+  function stampGlyph(g, it, from, to) {
+    const q = it.glyph, [dx, dy] = dev(q.x, q.y), W = Math.max(2, Math.round(q.w * V.k * dpr)), H = Math.max(2, Math.round(q.h * V.k * dpr));
+    const bm = glyphBitmap(q.ch, it.color, W, H), X = Math.round(dx), Y = Math.round(dy);
+    for (let i = from; i < to; i++) {
+      const [, , c, r] = it.pts[i];
+      const x0 = Math.floor(W * c / q.C), x1 = Math.floor(W * (c + 1) / q.C), y0 = Math.floor(H * r / q.R), y1 = Math.floor(H * (r + 1) / q.R);
+      if (x1 > x0 && y1 > y0) g.ctx.drawImage(bm, x0, y0, x1 - x0, y1 - y0, X + x0, Y + y0, x1 - x0, y1 - y0);
+    }
+  }
+  function label(btn, text) {
+    const size = clampLabel(), m = measure(text, size), H = Math.ceil(size * 1.7), c = document.createElement("canvas");
+    c.width = Math.ceil(m.w * dpr); c.height = Math.ceil(H * dpr);
+    c.style.width = Math.ceil(m.w) + "px"; c.style.height = H + "px";
+    const x = c.getContext("2d");
+    [...text].forEach((ch, i) => {
+      const a = ATLAS.m[ch];
+      if (!a) return;
+      const w = Math.max(2, Math.round(a[2] / ATLAS.px * size * dpr)), h = Math.max(2, Math.round(a[3] / ATLAS.px * size * dpr));
+      x.drawImage(glyphBitmap(ch, INK, w, h), (m.xs[i] - a[5] * size) * dpr, (size * 1.22 + a[4] * size) * dpr);
+    });
+    btn.replaceChildren(c);
+    btn.setAttribute("aria-label", text);
+  }
+  const clampLabel = () => Math.max(16, Math.min(24, innerWidth / 62));
+  function layoutText(g, str, x, y, size, color, hi = []) {
+    const items = [], m = measure(str, size);
+    const tint = (i) => { for (const [w, c] of hi) { const at = str.indexOf(w); if (at >= 0 && i >= at && i < at + w.length) return c; } return color; };
+    [...str].forEach((ch, i) => {
+      const a = ATLAS.m[ch];
+      if (!a) return;
+      items.push(makeGlyph(g, ch, tint(i), x + m.xs[i] - a[5] * size, y + a[4] * size, a[2] / ATLAS.px * size, a[3] / ATLAS.px * size));
+    });
+    return { items, x, y, w: m.w, xs: m.xs.map((v) => v + x) };
+  }
+  async function write(str, x, y, size, o = {}) {
+    const g = o.g || G();
+    const w = measure(str, size).w;
+    const left = o.center ? x - w / 2 : x;
+    const t = layoutText(g, str, left, y, size, o.color || INK, o.hi);
+    await draw(t.items, { dur: o.dur, instant: o.instant, pen: !o.instant });
+    t.g = g;
+    if (o.mark) {
+      const at = str.indexOf(o.mark);
+      if (at >= 0) await marker(t.xs[at] + size * .22, y - size * .38, t.xs[at + o.mark.length] - size * .24, size * .78, YELLOW, { dur: 380, g: t.hl = o.g ? (o.g.hl = G()) : G() });
+    }
+    return t;
+  }
+
+  /* ---------- hand-drawn shapes ---------- */
+  const smooth = (pts) => {
+    let d = `M${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+      d += ` C${(p1[0] + (p2[0] - p0[0]) / 6).toFixed(1)} ${(p1[1] + (p2[1] - p0[1]) / 6).toFixed(1)} ${(p2[0] - (p3[0] - p1[0]) / 6).toFixed(1)} ${(p2[1] - (p3[1] - p1[1]) / 6).toFixed(1)} ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`;
+    }
+    return d;
+  };
+    const shape = (g, d, color = INK, w = 4) => makeItem(g, d, color, Math.max(4, w * 1.15));
+  const lineD = (x1, y1, x2, y2, j = 3) => {
+    const n = Math.max(3, Math.round(Math.hypot(x2 - x1, y2 - y1) / 90)), pts = [];
+    for (let i = 0; i <= n; i++) { const k = i / n; pts.push([x1 + (x2 - x1) * k + (i && i < n ? rand() * j : 0), y1 + (y2 - y1) * k + (i && i < n ? rand() * j * 2 : 0)]); }
+    return smooth(pts);
+  };
+  const loopD = (cx, cy, rx, ry) => {
+    const pts = [], start = -2.2, turn = 6.283 * 1.08;
+    for (let i = 0; i <= 18; i++) { const a = start + turn * i / 18, k = 1 + .05 * i / 18 + rand() * .025; pts.push([cx + Math.cos(a) * rx * k, cy + Math.sin(a) * ry * k]); }
+    return smooth(pts);
+  };
+  const line = (x1, y1, x2, y2, o = {}) => draw([shape(o.g || G(), lineD(x1, y1, x2, y2), o.color, o.w || 4)], o);
+  const circle = (cx, cy, rx, ry, o = {}) => draw([shape(o.g || G(), loopD(cx, cy, rx, ry), o.color, o.w || 3.5)], { dur: 900, ...o });
+  const arrow = (x1, y1, x2, y2, o = {}) => {
+    const g = o.g || G(), a = Math.atan2(y2 - y1, x2 - x1), h = 22;
+    const mid = [(x1 + x2) / 2 + (y2 - y1) * .12, (y1 + y2) / 2 - (x2 - x1) * .12];
+    return draw([
+      shape(g, smooth([[x1, y1], mid, [x2, y2]]), o.color, 3.5),
+      shape(g, `M${x2 + Math.cos(a + 2.6) * h} ${y2 + Math.sin(a + 2.6) * h} L${x2} ${y2} L${x2 + Math.cos(a - 2.6) * h} ${y2 + Math.sin(a - 2.6) * h}`, o.color, 3.5),
+    ], o);
+  };
+  const box = (x, y, w, h, o = {}) => {
+    const g = o.g || G(), c = o.color, r = 4, s = o.w || 5;
+    return draw([shape(g, lineD(x, y, x + w + r, y + rand() * 3), c, s), shape(g, lineD(x + w, y - r, x + w, y + h + r), c, s), shape(g, lineD(x + w + r, y + h, x - r, y + h), c, s), shape(g, lineD(x, y + h + r, x, y - r), c, s)], o);
+  };
+  const check = async (x, y, o = {}) => { await draw([shape(o.g || G(), smooth([[x, y], [x + 12, y + 18], [x + 44, y - 26]]), o.color || GREEN, 8)], { dur: 260, ...o }); Sound.ding(); };
+  const marker = (x1, y, x2, h, color = YELLOW, o = {}) => {
+    const g = o.g || G();
+    g.comp = "darken";
+    return draw([shape(g, lineD(x1, y, x2, y, 2), color, h)], { dur: 560, ...o });
+  };
+
+  /* ---------- eraser ---------- */
+  function setEraser(x, y, ang) { eraser.style.transform = `translate(${x}px, ${y}px) rotate(${ang}deg)`; }
+  const smearEl = $("smear"), sctx = smearEl.getContext("2d");
+  const dustEl = document.createElement("canvas");
+  dustEl.style.cssText = "position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:4";
+  document.body.append(dustEl);
+  const dctx = dustEl.getContext("2d");
+  let crumbs = [], crumbT = 0, crumbLive = false;
+  function crumbLoop(now) {
+    const dt = Math.min(32, now - crumbT) / 16.7; crumbT = now;
+    if (dustEl.width !== innerWidth) { dustEl.width = innerWidth; dustEl.height = innerHeight; }
+    dctx.clearRect(0, 0, dustEl.width, dustEl.height);
+    dctx.lineCap = "round";
+    crumbs = crumbs.filter((c) => (c.life -= dt) > 0);
+    for (const c of crumbs) {
+      c.x += c.vx * dt; c.y += c.vy * dt; c.vy += .09 * dt; c.vx *= .985; c.a += c.va * dt;
+      dctx.globalAlpha = Math.min(1, c.life / 18) * .8;
+      dctx.strokeStyle = c.color; dctx.lineWidth = c.w;
+      dctx.beginPath();
+      dctx.moveTo(c.x - Math.cos(c.a) * c.len, c.y - Math.sin(c.a) * c.len);
+      dctx.quadraticCurveTo(c.x + c.len * .4, c.y - c.len * .4, c.x + Math.cos(c.a) * c.len, c.y + Math.sin(c.a) * c.len);
+      dctx.stroke();
+    }
+    dctx.globalAlpha = 1;
+    if (crumbs.length) requestAnimationFrame(crumbLoop);
+    else { crumbLive = false; dctx.clearRect(0, 0, dustEl.width, dustEl.height); }
+  }
+  function crumb(x, y) {
+    crumbs.push({ x: x + (Math.random() - .5) * 30, y: y + 18 + Math.random() * 14, vx: (Math.random() - .5) * 2.6, vy: -.4 - Math.random() * 1.1, a: Math.random() * 6.3, va: (Math.random() - .5) * .22, len: 2 + Math.random() * 4, w: 1.4 + Math.random() * 1.5, life: 34 + Math.random() * 30, color: Math.random() < .45 ? "#BDBDB9" : "#8C8C8C" });
+    if (!crumbLive) { crumbLive = true; crumbT = performance.now(); requestAnimationFrame(crumbLoop); }
+  }
+  function party() {
+    if (still) return;
+    for (let i = 0; i < 90; i++) setTimeout(() => {
+      crumb(Math.random() * innerWidth, -30);
+      const c = crumbs.at(-1);
+      Object.assign(c, { vy: 1.5 + Math.random() * 2, life: 90 + Math.random() * 60, w: 3 + Math.random() * 3, len: 5 + Math.random() * 7, color: ["#FFD23F", "#1B1B1B", "#BDBDB9"][i % 3] });
+    }, i * 24);
+  }
+  function rub(x, y, w, h, passes, ms, lineW) {
+    return new Promise((done) => {
+      if (skip || still) return done();
+      const at = (e) => [x + w / 2 - Math.cos(e * passes * Math.PI) * (w / 2 + 30), y + h * e];
+      let lastE = 0, last = at(0), tilt = -8, n = 0;
+      smearEl.width = Math.ceil(innerWidth / 3); smearEl.height = Math.ceil(innerHeight / 3);
+      smearEl.style.transition = "none"; smearEl.style.opacity = 1;
+      const t0 = performance.now();
+      setEraser(last[0], last[1], tilt);
+      eraser.style.opacity = 1;
+      const frame = (now) => {
+        const t = Math.min(1, (now - t0) / ms), e = -(Math.cos(Math.PI * t) - 1) / 2;
+        ctx.save(); ctx.scale(dpr, dpr);
+        ctx.strokeStyle = pattern; ctx.lineWidth = lineW; ctx.lineCap = "round"; ctx.lineJoin = "round";
+        ctx.beginPath(); ctx.moveTo(last[0], last[1]);
+        for (let i = 1; i <= 10; i++) { const q = at(lastE + (e - lastE) * i / 10); ctx.lineTo(q[0], q[1]); }
+        ctx.stroke(); ctx.restore();
+        const q = at(e), goal = Math.max(-16, Math.min(16, (q[0] - last[0]) * .06)) - 6;
+        tilt += (goal - tilt) * .16;
+        setEraser(q[0], q[1], tilt);
+        sctx.strokeStyle = "rgba(120,120,125,.05)"; sctx.lineWidth = lineW / 4; sctx.lineCap = "round";
+        sctx.beginPath(); sctx.moveTo(last[0] / 3, last[1] / 3); sctx.lineTo(q[0] / 3, q[1] / 3); sctx.stroke();
+        if (Math.hypot(q[0] - last[0], q[1] - last[1]) > 2 && n++ % 2 === 0) crumb(q[0], q[1]);
+        Sound.rub(.3 * (.55 + .45 * Math.abs(Math.sin(now / 62))));
+        lastE = e; last = q;
+        if (t < 1 && !skip) requestAnimationFrame(frame);
+        else {
+          Sound.rub(0); eraser.style.opacity = 0;
+          smearEl.style.transition = ""; smearEl.style.opacity = 0;
+          done();
+        }
+      };
+      requestAnimationFrame(frame);
+    });
+  }
+  const wipeCanvas = () => { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, over.width, over.height); ctx.restore(); };
+  const parkPen = () => { pen.style.opacity = 0; pen_.on = false; };
+  async function eraseGroups(groups, x, y, w, h) {
+    parkPen();
+    const [sx, sy, k] = toScreen(x, y);
+    await rub(sx, sy + 8 * k, w * k, Math.max(0, h * k - 16 * k), Math.max(3, Math.round(h / 40)), 620, Math.max(54, 72 * k));
+    groups.forEach((g) => g.remove());
+    redraw(sheet);
+    wipeCanvas();
+  }
+  async function eraseAll() {
+    parkPen();
+    await rub(0, 0, innerWidth, innerHeight, 5, 950, Math.max(innerHeight / 2.2, 200));
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = pattern; ctx.fillRect(0, 0, over.width, over.height); ctx.restore();
+    clearSheet();
+    wipeCanvas();
+  }
+  function flip() {
+    return new Promise((done) => {
+      const old = sheet;
+      sheet = newSheet(true);
+      if (skip || still) { old.el.remove(); return done(); }
+      old.el.style.zIndex = 2;
+      Sound.flip();
+      const a = old.el.animate([
+        { transform: "rotateX(0deg)", "--shade": 0 },
+        { transform: "rotateX(-96deg)", "--shade": .3 },
+      ], { duration: 950, easing: "cubic-bezier(.45,.05,.25,1)", fill: "forwards" });
+      a.onfinish = () => { old.el.remove(); done(); };
+    });
+  }
+
+  /* ---------- deck ---------- */
+  const heading = async (text) => {
+    const t = await write(text, 96, 134, 46);
+    await marker(88, 116, t.x + t.w + 8, 40);
+    return t;
+  };
+  async function coverTitle() {
+    await write("Modals for", 800, 190, 112, { center: true });
+    const t = await write("Giving Advice", 800, 340, 112, { center: true });
+    await marker(t.x - 4, 380, t.x + t.w + 4, 16);
+    await write("Vicente Arredondo & Benjam\u00edn Contreras", 800, 452, 38, { center: true, color: "#4A4A4A" });
+  }
+  const row = async (word, y, mean, ex, mk) => {
+    const w = await write(word, 130, y, 46);
+    await circle(130 + w.w / 2, y - 16, w.w / 2 + 32, 54, { w: 6 });
+    await arrow(130 + w.w + 46, y - 20, 610, y - 20);
+    const t = await write(mean, 640, y - 20, 38);
+    if (word === "had better") await marker(t.x - 4, y - 34, t.x + t.w + 6, 40);
+    await write(ex, 640, y + 38, 30, { color: LEAD, mark: mk });
+  };
+  const meter = async (x, y, n) => {
+    for (let i = 0; i < 3; i++) await box(x + i * 116, y, 100, 44, { dur: 170, color: i < n ? INK : LEAD, w: 4 });
+    for (let i = 0; i < n; i++) await marker(x + i * 116 + 20, y + 22, x + i * 116 + 80, 26);
+  };
+  const strength = async (word, y, a, b, n) => {
+    const w = await write(word, 130, y, 46);
+    await circle(130 + w.w / 2, y - 16, w.w / 2 + 32, 54, { w: 6 });
+    await write(a, 600, y - 22, 30);
+    await write(b, 600, y + 30, 26, { color: LEAD });
+    await meter(1160, y - 42, n);
+  };
+  const formula = (text) => write(text, 110, 244, 34, { color: LEAD });
+  const form = (text, mk, y) => write(text, 110, y, 52, { mark: mk });
+  const talk = async (q, y) => {
+    await write(q, 110, y, 34);
+    await arrow(770, y - 12, 830, y - 12);
+  };
+  const deck = [
+    { steps: [async () => {
+        if (!sheet.groups.length) await coverTitle();
+        await wait(280);
+        await write("How to give advice in English", 800, 545, 40, { center: true, color: LEAD });
+        for (const [w, x] of [["should", 280], ["ought to", 740], ["had better", 1270]]) {
+          const r = await write(w, x, 722, 46, { center: true });
+          await circle(x, 704, r.w / 2 + 40, 62, { w: 8 });
+        }
+      }] },
+    { steps: [
+        () => heading("What are they for?"),
+        () => row("should", 320, "a friendly tip", "You should sleep more.", "should"),
+        () => row("ought to", 520, "the right thing to do", "You ought to tell the truth.", "ought to"),
+        () => row("had better", 720, "a warning!", "You'd better hurry, or you'll miss the bus.", "'d better"),
+      ] },
+    { steps: [
+        () => heading("How strong are they?"),
+        () => strength("should", 320, "normal, everyday advice", "the most common one", 2),
+        () => strength("ought to", 520, "almost the same as should", "a little more formal", 2),
+        () => strength("had better", 720, "strong advice", "or something bad will happen", 3),
+      ] },
+    { transition: "flip", steps: [
+        () => heading("The structure never changes"),
+        async () => {
+          const items = [["Subject", 110, 300], ["Modal", 470, 300], ["Base verb", 830, 320], ["Complement", 1210, 300]];
+          for (const [w, x, wd] of items) { await box(x, 220, wd - 20, 100, { dur: 300 }); await write(w, x + (wd - 20) / 2, 283, 27, { center: true, dur: 260, mark: w === "Modal" ? w : null }); if (x < 1200) await write("+", x + wd + 18, 284, 40, { center: true, dur: 120 }); }
+        },
+        async () => { for (const [w, x] of [["You", 250], ["should", 610], ["study", 980], ["more.", 1350]]) await write(w, x, 416, 52, { center: true, dur: 340, mark: w === "should" ? w : null }); },
+        async () => {
+          const t = await write("He shoulds study.", 110, 660, 44);
+          await wait(240);
+          await line(t.xs[3] - 4, 640, t.xs[10] + 4, 634, { w: 7, color: RED });
+          Sound.nope();
+          await write("should", (t.xs[3] + t.xs[10]) / 2, 574, 36, { center: true, dur: 380, color: GREEN });
+          await check(t.x + t.w + 24, 648);
+          await write("no -s on the modal", 110, 740, 32, { color: LEAD });
+        },
+        async () => {
+          const t = await write("You should to go.", 830, 660, 44);
+          await wait(240);
+          await line(t.xs[11] - 8, 640, t.xs[13] + 6, 636, { w: 7, color: RED });
+          Sound.nope();
+          await check(t.x + t.w + 24, 648);
+          await write("no to after the modal", 830, 740, 32, { color: LEAD });
+        },
+      ] },
+    { steps: [
+        async () => {
+          await heading("One sentence, three forms");
+          await box(110, 320, 170, 170, { dur: 420 });
+          const st = deck[4].st = {};
+          st.sign = G(); await write("+", 195, 436, 110, { center: true, g: st.sign, dur: 240 });
+          st.line = G(); await write("You should call her.", 340, 410, 64, { g: st.line, mark: "should" });
+          st.tag = G(); await write("positive", 340, 482, 38, { g: st.tag, color: LEAD, dur: 300 });
+        },
+        async () => {
+          const st = deck[4].st;
+          await eraseGroups([st.sign, st.line, st.line.hl, st.tag].filter(Boolean), 120, 330, 1300, 180);
+          st.sign = G(); await write("-", 195, 436, 110, { center: true, g: st.sign, dur: 200 });
+          st.line = G(); await write("You shouldn't call her.", 340, 410, 64, { g: st.line, mark: "shouldn't" });
+          st.tag = G(); await write("negative", 340, 482, 38, { g: st.tag, color: LEAD, dur: 300 });
+        },
+        async () => {
+          const st = deck[4].st;
+          await eraseGroups([st.sign, st.line, st.line.hl, st.tag].filter(Boolean), 120, 330, 1300, 180);
+          await write("?", 195, 446, 84, { center: true, dur: 260 });
+          await write("Should I call her?", 340, 410, 64, { mark: "Should" });
+          await write("question", 340, 482, 38, { color: LEAD, dur: 300 });
+          await arrow(420, 560, 420, 626);
+          await write("Yes, you should.  No, you shouldn't.", 340, 700, 46);
+        },
+      ] },
+    { steps: [
+        async () => { await heading("Positive: a good idea"); await formula("Subject + modal + base verb + complement"); },
+        () => form("You should drink more water.", "should", 390),
+        () => form("She ought to see a doctor.", "ought to", 530),
+        () => form("We'd better leave now.", "'d better", 670),
+        () => write("'d better is the short form of had better.", 110, 800, 32, { color: LEAD }),
+      ] },
+    { transition: "flip", steps: [
+        async () => { await heading("Negative: a bad idea"); await formula("Subject + modal + not + base verb + complement"); },
+        () => form("You shouldn't eat so much sugar.", "shouldn't", 390),
+        () => form("He ought not to drive so fast.", "ought not to", 530),
+        () => form("You'd better not be late!", "'d better not", 670),
+        () => write("Not goes between ought and to, and after better.", 110, 800, 32, { color: LEAD }),
+      ] },
+    { steps: [
+        async () => { await heading("Questions: asking for advice"); await formula("Should + subject + base verb + complement?"); },
+        async () => { await write("Should I call her?", 110, 400, 60, { mark: "Should" }); },
+        async () => { await write("Yes, you should.", 880, 368, 42); await write("No, you shouldn't.", 880, 432, 42); },
+        async () => { await write("What should I do?", 110, 620, 60, { mark: "should" }); },
+        async () => { await write("You should talk to her.", 880, 620, 42); },
+        () => write("In questions, we almost always use should.", 110, 800, 32, { color: LEAD }),
+      ] },
+    { steps: [
+        () => heading("Real-life examples"),
+        ...[["I have a terrible headache.", "You should drink water and rest.", "should", 300],
+            ["I found a wallet on the street.", "You ought to return it.", "ought to", 440],
+            ["My bus leaves in five minutes!", "You'd better run!", "'d better", 580],
+            ["Should I text my ex?", "No, you shouldn't!", "shouldn't", 720]].flatMap(([p, a, mk, y]) => [
+          () => talk(p, y),
+          () => write(a, 860, y, 32, { mark: mk }),
+        ]),
+      ] },
+    { game: true, steps: [() => Game.lobby()] },
+    { steps: [
+        async () => {
+          await heading("Remember this");
+          for (const [txt, y] of [["They give advice: should, ought to, had better.", 280], ["Modal + base verb: no -s and no to.", 380], ["Negative: shouldn't, ought not to, 'd better not.", 480], ["Question: Should + subject + base verb?", 580]]) await write(txt, 110, y, 40, { dur: 700 });
+        },
+        async () => {
+          const t = await write("Thank you!", 800, 750, 96, { center: true });
+          await marker(t.x, 770, t.x + t.w, 16);
+          await write("Any questions?", 800, 840, 36, { center: true, color: LEAD });
+        },
+      ] },
+  ];
+
+  /* ---------- Advice Hotline: the screen runs the game, phones join by QR ---------- */
+  const FIREBASE_URL = "https://modals-for-giving-advice-default-rtdb.firebaseio.com";
+  const params = new URLSearchParams(location.search);
+  const DB = location.hostname === "localhost" && params.get("db") || FIREBASE_URL;
+  const CALLS = 5, SECONDS = 20;
+  const POOL = [
+    { p: "I have a terrible toothache!", a: "You should see a dentist.", w: ["You should to see a dentist.", "You should seeing a dentist."], why: "Modal + base verb: no to, no -ing." },
+    { p: "My brother never does his homework!", a: "He should do his homework.", w: ["He shoulds do his homework.", "He should does his homework."], why: "No -s on the modal or on the verb." },
+    { p: "The movie starts in ten minutes!", a: "We'd better leave now!", w: ["We'd better to leave now!", "We'd better leaving now!"], why: "Had better + base verb." },
+    { p: "I'm always tired at school!", a: "You shouldn't go to bed so late.", w: ["You don't should go to bed so late.", "You shouldn't to go to bed so late."], why: "Negative: shouldn't + base verb." },
+    { p: "It's freezing and I want to wear shorts!", a: "You'd better not wear shorts.", w: ["You'd not better wear shorts.", "You don't had better wear shorts."], why: "Not goes after better." },
+    { p: "I told a lie to my mom!", a: "You ought to tell her the truth.", w: ["You ought tell her the truth.", "You ought telling her the truth."], why: "Ought always keeps its to." },
+    { p: "My dad drives too fast!", a: "He ought not to drive so fast.", w: ["He oughts not to drive so fast.", "He not ought to drive so fast."], why: "Not goes between ought and to." },
+    { p: "I found a wallet with money in it!", a: "You ought to return it.", w: ["You ought not to return it.", "You'd better not return it."], why: "Returning it is the right thing to do." },
+    { p: "I eat junk food every day!", a: "You shouldn't eat so much junk food.", w: ["You should eat more junk food.", "You'd better eat junk food."], why: "Bad idea, so we use the negative." },
+    { p: "The floor is wet and I'm running!", a: "You'd better be careful!", w: ["You'd better not be careful!", "You shouldn't be careful!"], why: "It's a warning: had better." },
+    { p: "I'm really stressed!", a: "You should take a break.", w: ["You should takes a break.", "You should took a break."], why: "Always the base verb." },
+    { p: "I need ideas for my problem!", a: "What should I do?", w: ["What I should do?", "What do I should?"], why: "Wh- + should + subject + base verb." },
+  ];
+  const shuffled = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  function pepeParts(g) {
+    const P = (d, c = INK, w = 5) => shape(g, d, c, w);
+    return [
+      P(loopD(1190, 480, 142, 150)),
+      P(smooth([[1076, 392], [1058, 322], [1112, 362], [1120, 282], [1168, 340], [1206, 262], [1232, 338], [1290, 286], [1282, 368], [1342, 344], [1304, 408]])),
+      P(loopD(1136, 462, 38, 38)), P(loopD(1236, 454, 48, 48)),
+      P(loopD(1146, 468, 7, 7), INK, 9), P(loopD(1226, 448, 9, 9), INK, 11),
+      P(smooth([[1120, 556], [1190, 604], [1258, 544]])), P(smooth([[1120, 556], [1258, 544]])),
+      P(smooth([[1110, 618], [1092, 700], [1090, 800]])), P(smooth([[1272, 616], [1298, 700], [1300, 800]])),
+      P(smooth([[1282, 650], [1372, 620], [1370, 520]])),
+      P(smooth([[1338, 400], [1376, 420], [1400, 500], [1398, 566]]), INK, 12),
+      P(loopD(1338, 400, 24, 18), INK, 7), P(loopD(1398, 572, 24, 18), INK, 7),
+    ];
+  }
+  const Overlay = (() => {
+    const list = [];
+    const place = (el, x, y, w, h) => { el.style.left = V.ox + x * V.k + "px"; el.style.top = V.oy + y * V.k + "px"; el.style.width = w * V.k + "px"; el.style.height = h * V.k + "px"; };
+    const add = (el, x, y, w, h) => { list.push([el, x, y, w, h]); document.body.append(el); place(el, x, y, w, h); return el; };
+    const clear = () => { list.splice(0).forEach(([el]) => el.remove()); };
+    addEventListener("resize", () => list.forEach((l) => place(...l)));
+    const button = (x, y, w, h, label, fn) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "gbtn"; b.setAttribute("aria-label", label);
+      b.addEventListener("click", (e) => { e.stopPropagation(); fn(); });
+      return add(b, x, y, w, h);
+    };
+    return { add, clear, button };
+  })();
+  const Game = (() => {
+    let room = "", es = null, data = {}, phase = "off", phones = true, order = [], i = -1, scores = { A: 0, B: 0 };
+    let q = null, opts = [], correct = 0, left = 0, timer = null, turn = "A", pepeG = null, countG = null, clockG = null, scoreG = null, online = false, localPick = null, startedAt = 0;
+    const path = (p) => `${DB}/rooms/${room}${p}.json`;
+    const send = (p, method, body) => fetch(path(p), { method, body: JSON.stringify(body), signal: AbortSignal.timeout(6000) });
+    const quiet = (p, method, body) => send(p, method, body).catch(() => {});
+    function merge(p, val, patch) {
+      const keys = p.split("/").filter(Boolean);
+      if (!keys.length) { if (patch) Object.assign(data, val); else data = val || {}; return; }
+      let n = data;
+      keys.slice(0, -1).forEach((k) => { n = n[k] = n[k] || {}; });
+      const k = keys.at(-1);
+      if (patch) n[k] = Object.assign(n[k] || {}, val);
+      else if (val === null) delete n[k];
+      else n[k] = val;
+    }
+    function listen() {
+      es?.close();
+      es = new EventSource(path(""));
+      const on = (patch) => (e) => { const m = JSON.parse(e.data); merge(m.path, m.data, patch); changed(); };
+      es.addEventListener("put", on(false));
+      es.addEventListener("patch", on(true));
+    }
+    const teamOf = () => { const n = { A: 0, B: 0 }; for (const p of Object.values(data.players || {})) if (p.team) n[p.team]++; return n; };
+    function changed() {
+      const players = data.players || {};
+      for (const [id, p] of Object.entries(players)) {
+        if (p.team) continue;
+        const n = teamOf(), team = n.A <= n.B ? "A" : "B";
+        p.team = team;
+        quiet(`/players/${id}`, "PATCH", { team });
+      }
+      if (data.state?.startedAt) startedAt = data.state.startedAt;
+      if (phase === "lobby") showCounts();
+      if (phase === "asking") {
+        const got = Object.keys(data.answers?.["r" + i] || {}).length, all = Object.keys(players).length;
+        showClock();
+        if (phones && all && got >= all) timeUp();
+      }
+    }
+    async function refill(g, fn) { g.items = []; g.ctx.clearRect(0, 0, g.canvas.width, g.canvas.height); await fn(); }
+    const instant = (g, txt, x, y, size, o = {}) => write(txt, x, y, size, { g, instant: true, ...o });
+    function showCounts() {
+      const n = teamOf();
+      refill(countG, async () => {
+        await instant(countG, `Team A: ${n.A}`, 610, 512, 40);
+        await instant(countG, `Team B: ${n.B}`, 610, 576, 40);
+      });
+    }
+    function showScores() {
+      refill(scoreG, () => instant(scoreG, `Team A: ${scores.A}     Team B: ${scores.B}`, 110, 852, 30));
+    }
+    function showClock() {
+      refill(clockG, async () => {
+        await instant(clockG, String(Math.ceil(left)), 1030, 140, 60, { center: true });
+        if (phones) await instant(clockG, `${Object.keys(data.answers?.["r" + i] || {}).length} of ${Object.keys(data.players || {}).length} answered`, 620, 136, 28, { color: LEAD });
+      });
+    }
+    const speak = (txt) => Sound.say(txt, () => pepeG?.canvas?.classList.add("talk"), () => pepeG?.canvas?.classList.remove("talk"));
+    async function drawPepe() {
+      pepeG = G({ own: true });
+      await draw(pepeParts(pepeG), { dur: 1100 });
+      await write("Pepe", 1195, 770, 34, { center: true, dur: 200 });
+    }
+    function reset() {
+      clearInterval(timer); timer = null; es?.close(); es = null; Overlay.clear(); Sound.stopRing(); Sound.hush();
+      data = {}; scores = { A: 0, B: 0 }; i = -1; online = false;
+    }
+    async function lobby() {
+      reset();
+      phase = "lobby"; phones = true;
+      room = [...Array(4)].map(() => "ABCDEFGHJKMNPQRSTUVWXYZ"[Math.floor(Math.random() * 23)]).join("");
+      order = shuffled(POOL).slice(0, CALLS);
+      await heading("Advice Hotline: scan to play");
+      await box(100, 200, 450, 450, { dur: 420, w: 6 });
+      await write(`Room ${room}`, 325, 712, 38, { center: true });
+      await write("Scan the QR.", 610, 300, 44);
+      await write("Teams are automatic.", 610, 366, 28, { color: LEAD });
+      countG = G({ own: true });
+      await box(600, 630, 400, 100, { w: 6, dur: 320 });
+      await write("Start game", 800, 696, 42, { center: true, dur: 340 });
+      await write("Play without phones", 610, 800, 28, { color: LEAD, dur: 300 });
+      await drawPepe();
+      showCounts();
+      const join = new URL("play.html", location.href);
+      join.search = ""; join.searchParams.set("room", room);
+      if (DB !== FIREBASE_URL) join.searchParams.set("db", DB);
+      const qr = qrcode(0, "M"); qr.addData(join.href); qr.make();
+      const n = qr.getModuleCount(), S = 12, c = document.createElement("canvas");
+      c.width = c.height = (n + 4) * S;
+      const x = c.getContext("2d");
+      x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height); x.fillStyle = "#000";
+      for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (qr.isDark(r, k)) x.fillRect((k + 2) * S, (r + 2) * S, S, S);
+      c.className = "qrcode"; c.setAttribute("role", "img"); c.setAttribute("aria-label", "QR code to join the game");
+      Overlay.add(c, 120, 220, 410, 410);
+      Overlay.button(600, 630, 400, 100, "Start game", () => forward());
+      Overlay.button(600, 770, 420, 50, "Play without phones", () => { phones = false; forward(); });
+      try {
+        await send("", "PUT", { state: { phase: "lobby" } });
+        online = true;
+        listen();
+      } catch (e) {
+        phones = false;
+        c.remove();
+        await write("No connection", 325, 420, 34, { center: true, color: RED });
+        await write("Play without phones.", 325, 470, 26, { center: true, color: LEAD });
+      }
+    }
+    const publish = (state) => { if (phones && online) return quiet("/state", "PUT", state); };
+    async function call() {
+      i++; phase = "ringing"; q = order[i];
+      Overlay.clear();
+      await eraseAll();
+      turn = i % 2 ? "B" : "A";
+      await heading(`Call ${i + 1} of ${CALLS}`);
+      scoreG = G({ own: true }); clockG = G({ own: true });
+      showScores();
+      await drawPepe();
+      const bub = G();
+      await box(1270, 170, 290, 100, { dur: 240, g: bub });
+      await write("Ring ring!", 1415, 236, 36, { center: true, dur: 240, g: bub });
+      pepeG.canvas.classList.add("ring");
+      Sound.ring(2);
+      await wait(2100);
+      Sound.stopRing(); Sound.pick();
+      pepeG.canvas.classList.remove("ring");
+      bub.remove(); redraw(sheet);
+      await box(1290, 170, 260, 100, { dur: 200 });
+      await write("Hello?!", 1420, 236, 44, { center: true, dur: 240 });
+      await line(1340, 276, 1324, 336, { w: 5 });
+      opts = shuffled([q.a, ...q.w]); correct = opts.indexOf(q.a); localPick = null;
+      await publish({ phase: "call", round: i, problem: q.p, opts, startedAt: { ".sv": "timestamp" } });
+      speak(`Hello?! This is Pepe! ${q.p} What should I do?`);
+      left = SECONDS; phase = "asking"; startedAt = 0;
+      const t0 = performance.now();
+      showClock();
+      timer = setInterval(() => {
+        const was = Math.ceil(left);
+        left = Math.max(0, SECONDS - (performance.now() - t0) / 1000);
+        if (Math.ceil(left) !== was) showClock();
+        if (left <= 0) timeUp();
+      }, 200);
+      await write(`Pepe: ${q.p}`, 110, 222, 34);
+      if (!phones) await write(`Team ${turn}, your turn!`, 110, 282, 30, { color: LEAD });
+      for (let k = 0; k < 3; k++) {
+        const y = 330 + k * 150;
+        await box(110, y, 830, 118, { color: LEAD, dur: 180 });
+        await write(`${"ABC"[k]}.  ${opts[k]}`, 136, y + 74, 32, { dur: 300 });
+        if (!phones) Overlay.button(110, y, 830, 118, `Answer ${"ABC"[k]}`, () => pick(k));
+      }
+    }
+    function pick(k) { if (phase === "asking" && !phones) { localPick = k; timeUp(); } }
+    const timeUp = () => { if (phase === "asking") { phase = "closing"; clearInterval(timer); timer = null; go(); } };
+    function score() {
+      if (!phones) {
+        const ok = localPick === correct, pts = ok ? 100 + Math.round(100 * left / SECONDS) : 0;
+        scores[turn] += pts;
+        return ok ? 1 : 0;
+      }
+      const got = data.answers?.["r" + i] || {}, sum = { A: 0, B: 0 }, size = { A: 0, B: 0 };
+      let right = 0, total = 0;
+      for (const [id, p] of Object.entries(data.players || {})) {
+        if (p.team) size[p.team]++;
+        const a = got[id];
+        if (!a) continue;
+        total++;
+        if (a.c !== correct) continue;
+        right++;
+        const late = startedAt && a.at ? (a.at - startedAt) / (SECONDS * 1000) : .5;
+        sum[p.team] += 100 + Math.round(100 * Math.max(0, 1 - late));
+      }
+      for (const t of ["A", "B"]) scores[t] += size[t] ? Math.round(sum[t] / size[t]) : 0;
+      return total ? right / total : 0;
+    }
+    async function reveal() {
+      skip = false;
+      phase = "reveal";
+      Overlay.clear(); Sound.hush();
+      const rate = score();
+      refill(clockG, async () => {});
+      const y = 330 + correct * 150;
+      for (let k = 0; k < 3; k++) if (k !== correct) { const yy = 330 + k * 150; await line(136, yy + 60, 900, yy + 56, { w: 4, color: RED, dur: 160 }); }
+      await box(110, y, 830, 118, { color: GREEN, dur: 240, w: 6 });
+      await check(958, y + 62);
+      showScores();
+      await publish({ phase: "reveal", round: i, correct, why: q.why, scores });
+      speak(rate >= .5 ? `${q.a} Great advice, thank you!` : `Oh no! The right answer is: ${q.a}`);
+      await write(q.why, 110, 792, 28, { color: LEAD });
+    }
+    async function finish() {
+      phase = "end";
+      Overlay.clear();
+      await eraseAll();
+      const win = scores.A === scores.B ? "" : scores.A > scores.B ? "A" : "B";
+      const title = win ? `Team ${win} wins!` : "It's a tie!";
+      const t = await write(title, 110, 330, 96);
+      await marker(t.x, 350, t.x + t.w, 18);
+      await write(`Team A: ${scores.A}`, 110, 480, 48);
+      await write(`Team B: ${scores.B}`, 110, 560, 48);
+      await publish({ phase: "end", win, scores });
+      await drawPepe();
+      pepeG.canvas.classList.add("talk");
+      Sound.tada(); party();
+      speak(win ? `Team ${win}, you are the best! Thank you for your advice!` : "It's a tie! You are all great! Thank you!");
+      phase = "done";
+    }
+    async function go() { if (busy) { skip = true; pendingNext = true; return; } run(next); }
+    async function next() {
+      if (phase === "lobby" || phase === "reveal") { if (phase === "lobby" || i + 1 < CALLS) return call(); return finish(); }
+      if (phase === "asking") { phase = "closing"; clearInterval(timer); timer = null; }
+      if (phase === "closing") return reveal();
+    }
+    function close() { reset(); phase = "off"; }
+    return { lobby, next, close, active: () => phase !== "off" && phase !== "done", backOk: () => phase === "lobby" || phase === "done", key: (k) => pick(k) };
+  })();
+
+  /* ---------- navigation ---------- */
+  let cur = 0, step = -1, started = false, pendingNext = false;
+  let startArt = null;
+  const boot = sheetReady.then(async () => {
+    label($("prev"), "Back"); label($("next"), "Next"); label($("soundBtn"), "Sound: on");
+    skip = true;
+    await coverTitle();
+    startArt = G({ own: true });
+    startArt.canvas.classList.add("startart");
+    await box(620, 590, 360, 130, { g: startArt, w: 6 });
+    await write("Start", 800, 678, 62, { center: true, g: startArt });
+    await write("Turn your sound on", 800, 784, 28, { center: true, color: LEAD, g: startArt });
+    skip = false;
+  });
+  async function begin() {
+    if (started) return;
+    started = true; busy = true;
+    Sound.init();
+    await boot;
+    $("startBtn").hidden = true;
+    startArt.canvas.classList.add("gone");
+    await new Promise((ok) => setTimeout(ok, 240));
+    startArt.remove();
+    await run(() => deck[0].steps[0]());
+  }
+  $("startBtn").addEventListener("click", begin);
+  for (const [ev, on] of [["mouseenter", true], ["mouseleave", false], ["focus", true], ["blur", false]]) $("startBtn").addEventListener(ev, () => startArt?.canvas?.classList.toggle("hot", on));
+  function toggleSound() { const v = Sound.toggle(); label($("soundBtn"), "Sound: " + (v ? "on" : "off")); $("soundBtn").setAttribute("aria-pressed", String(v)); }
+  $("soundBtn").addEventListener("click", (e) => { toggleSound(); e.currentTarget.blur(); });
+  async function run(fn) {
+    busy = true; skip = false;
+    await fn();
+    busy = false; skip = false;
+    parkPen();
+    refresh();
+    if (pendingNext) { pendingNext = false; forward(); }
+  }
+  function refresh() {
+    $("prev").disabled = cur === 0 && step <= 0;
+    $("next").disabled = cur === deck.length - 1 && step === deck[cur].steps.length - 1;
+  }
+  async function forward() {
+    if (!started) return begin();
+    if (busy) { skip = true; return; }
+    const d = deck[cur];
+    if (d.game && Game.active()) return run(() => Game.next());
+    if (step < d.steps.length - 1) { step++; const i = step; await run(() => d.steps[i]()); return; }
+    if (cur === deck.length - 1) return;
+    const nextIdx = cur + 1;
+    if (d.game) Game.close();
+    await run(async () => {
+      const t = deck[nextIdx].transition;
+      if (t === "flip") await flip(); else await eraseAll();
+      cur = nextIdx; step = 0;
+      refresh();
+      await deck[cur].steps[0]();
+    });
+  }
+  async function backward() {
+    if (!started) return;
+    if (busy) { skip = true; return; }
+    if (deck[cur].game && !Game.backOk()) return;
+    if (deck[cur].game) Game.close();
+    Sound.stopRing(); Sound.hush();
+    let c = cur, s = step - 1;
+    if (s < 0) { if (c === 0) return; c--; s = deck[c].steps.length - 1; }
+    await run(async () => {
+      skip = true;
+      clearSheet();
+      cur = c; step = s; seed = 7;
+      for (let i = 0; i <= s; i++) await deck[c].steps[i]();
+    });
+  }
+  $("next").addEventListener("click", (e) => { forward(); e.currentTarget.blur(); });
+  $("prev").addEventListener("click", (e) => { backward(); e.currentTarget.blur(); });
+  desk.addEventListener("click", forward);
+  addEventListener("keydown", (e) => {
+    if (e.target.closest && e.target.closest("button") && (e.key === " " || e.key === "Enter")) return;
+    if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown" || e.key === "Enter") { e.preventDefault(); forward(); }
+    else if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); backward(); }
+    else if (e.key === "m" || e.key === "M") toggleSound();
+    else if ("123".includes(e.key) && deck[cur].game) Game.key(+e.key - 1);
+  });
+  addEventListener("resize", () => { makePaper(); });
+
+  makePaper();
+  sheet = newSheet();
+  step = 0; refresh();
+  $("startBtn").focus({ preventScroll: true });
+})();
+</script>
+</body>
+</html>
