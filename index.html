@@ -153,26 +153,42 @@ path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
       ringGain = out;
     }
     function blips(text, end) {
-      if (!ok()) return end();
-      const syl = text.replace(/[^a-z ]/gi, "").split(/(?<=[aeiouy])/i).filter(Boolean);
+      if (!ac || !on) return end();
+      const syl = text.replace(/[^a-z ]/gi, "").split(/(?<=[aeiouy])/i).filter(Boolean).slice(0, 34);
       syl.forEach((s, i) => { const f = 430 + (s.charCodeAt(0) % 9) * 34 + Math.sin(i) * 60; tone(f, i * .085, .08, .1, "square"); tone(f * 1.5, i * .085, .07, .05); });
       setTimeout(end, syl.length * 85 + 120);
     }
+    let voices = [];
+    const loadVoices = () => { try { voices = window.speechSynthesis?.getVoices() || []; } catch (e) { voices = []; } };
+    loadVoices();
+    try { window.speechSynthesis?.addEventListener("voiceschanged", loadVoices); } catch (e) { /* older browser */ }
     function pepeVoice() {
-      const vs = (window.speechSynthesis?.getVoices() || []).filter((v) => /^en/i.test(v.lang));
-      return vs.find((v) => /Google US English|Samantha|Aria|Jenny|Zira/i.test(v.name)) || vs[0] || null;
+      if (!voices.length) loadVoices();
+      const en = voices.filter((v) => /^en/i.test(v.lang));
+      return en.find((v) => v.localService && /Zira|David|Samantha|Fred|Alex|Karen|Daniel/i.test(v.name)) || en.find((v) => /Google US English/i.test(v.name)) || en.find((v) => v.localService) || en[0] || null;
     }
+    let spoken = null;
     function say(text, onStart, onEnd) {
-      const end = () => { onEnd?.(); };
-      if (!ok()) return end();
+      let over = false;
+      const end = () => { if (!over) { over = true; onEnd?.(); } };
+      if (!ac || !on) return end();
+      ac.resume?.();
       onStart?.();
-      const voice = pepeVoice();
-      if (!voice) return blips(text, end);
-      speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.voice = voice; u.lang = voice.lang; u.pitch = 1.75; u.rate = 1.12; u.volume = 1;
-      u.onend = end; u.onerror = end;
-      speechSynthesis.speak(u);
+      const synth = window.speechSynthesis, voice = pepeVoice();
+      if (!synth || !voice) return blips(text, end);
+      const speakNow = () => {
+        let began = false;
+        const u = new SpeechSynthesisUtterance(text);
+        spoken = u;
+        u.voice = voice; u.lang = voice.lang; u.pitch = 1.8; u.rate = 1.1; u.volume = 1;
+        u.onstart = () => { began = true; };
+        u.onend = end;
+        u.onerror = (e) => { if (began || e.error === "canceled" || e.error === "interrupted") end(); else blips(text, end); };
+        synth.speak(u);
+        synth.resume?.();
+        setTimeout(() => { if (!began && !over && spoken === u) { u.onerror = u.onend = null; synth.cancel(); blips(text, end); } }, 1100);
+      };
+      if (synth.speaking || synth.pending) { synth.cancel(); setTimeout(speakNow, 90); } else speakNow();
     }
     const hush = () => { try { window.speechSynthesis?.cancel(); } catch (e) { /* not available */ } };
     return {
@@ -604,23 +620,6 @@ path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
     if (word === "had better") await marker(t.x - 4, y - 34, t.x + t.w + 6, 40);
     await write(ex, 640, y + 38, 30, { color: LEAD, mark: mk });
   };
-  const meter = async (x, y, n) => {
-    for (let i = 0; i < 3; i++) await box(x + i * 116, y, 100, 44, { dur: 170, color: i < n ? INK : LEAD, w: 4 });
-    for (let i = 0; i < n; i++) await marker(x + i * 116 + 20, y + 22, x + i * 116 + 80, 26);
-  };
-  const strength = async (word, y, a, b, n) => {
-    const w = await write(word, 130, y, 46);
-    await circle(130 + w.w / 2, y - 16, w.w / 2 + 32, 54, { w: 6 });
-    await write(a, 600, y - 22, 30);
-    await write(b, 600, y + 30, 26, { color: LEAD });
-    await meter(1160, y - 42, n);
-  };
-  const formula = (text) => write(text, 110, 244, 34, { color: LEAD });
-  const form = (text, mk, y) => write(text, 110, y, 52, { mark: mk });
-  const talk = async (q, y) => {
-    await write(q, 110, y, 34);
-    await arrow(770, y - 12, 830, y - 12);
-  };
   const deck = [
     { steps: [async () => {
         if (!sheet.groups.length) await coverTitle();
@@ -637,31 +636,25 @@ path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
         () => row("ought to", 520, "the right thing to do", "You ought to tell the truth.", "ought to"),
         () => row("had better", 720, "a warning!", "You'd better hurry, or you'll miss the bus.", "'d better"),
       ] },
-    { steps: [
-        () => heading("How strong are they?"),
-        () => strength("should", 320, "normal, everyday advice", "the most common one", 2),
-        () => strength("ought to", 520, "almost the same as should", "a little more formal", 2),
-        () => strength("had better", 720, "strong advice", "or something bad will happen", 3),
-      ] },
     { transition: "flip", steps: [
-        () => heading("The structure never changes"),
         async () => {
+          await heading("The structure never changes");
           const items = [["Subject", 110, 300], ["Modal", 470, 300], ["Base verb", 830, 320], ["Complement", 1210, 300]];
-          for (const [w, x, wd] of items) { await box(x, 220, wd - 20, 100, { dur: 300 }); await write(w, x + (wd - 20) / 2, 283, 27, { center: true, dur: 260, mark: w === "Modal" ? w : null }); if (x < 1200) await write("+", x + wd + 18, 284, 40, { center: true, dur: 120 }); }
+          for (const [w, x, wd] of items) { await box(x, 220, wd - 20, 100, { dur: 260 }); await write(w, x + (wd - 20) / 2, 283, 27, { center: true, dur: 220, mark: w === "Modal" ? w : null }); if (x < 1200) await write("+", x + wd + 18, 284, 40, { center: true, dur: 100 }); }
+          for (const [w, x] of [["You", 250], ["should", 610], ["study", 980], ["more.", 1350]]) await write(w, x, 416, 52, { center: true, dur: 280, mark: w === "should" ? w : null });
         },
-        async () => { for (const [w, x] of [["You", 250], ["should", 610], ["study", 980], ["more.", 1350]]) await write(w, x, 416, 52, { center: true, dur: 340, mark: w === "should" ? w : null }); },
         async () => {
           const t = await write("He shoulds study.", 110, 660, 44);
-          await wait(240);
+          await wait(200);
           await line(t.xs[3] - 4, 640, t.xs[10] + 4, 634, { w: 7, color: RED });
           Sound.nope();
-          await write("should", (t.xs[3] + t.xs[10]) / 2, 574, 36, { center: true, dur: 380, color: GREEN });
+          await write("should", (t.xs[3] + t.xs[10]) / 2, 574, 36, { center: true, dur: 340, color: GREEN });
           await check(t.x + t.w + 24, 648);
           await write("no -s on the modal", 110, 740, 32, { color: LEAD });
         },
         async () => {
           const t = await write("You should to go.", 830, 660, 44);
-          await wait(240);
+          await wait(200);
           await line(t.xs[11] - 8, 640, t.xs[13] + 6, 636, { w: 7, color: RED });
           Sound.nope();
           await check(t.x + t.w + 24, 648);
@@ -671,71 +664,46 @@ path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
     { steps: [
         async () => {
           await heading("One sentence, three forms");
-          await box(110, 320, 170, 170, { dur: 420 });
-          const st = deck[4].st = {};
-          st.sign = G(); await write("+", 195, 436, 110, { center: true, g: st.sign, dur: 240 });
-          st.line = G(); await write("You should call her.", 340, 410, 64, { g: st.line, mark: "should" });
-          st.tag = G(); await write("positive", 340, 482, 38, { g: st.tag, color: LEAD, dur: 300 });
+          await box(110, 280, 170, 170, { dur: 380 });
+          const st = deck[3].st = {};
+          st.sign = G(); await write("+", 195, 396, 110, { center: true, g: st.sign, dur: 220 });
+          st.line = G(); await write("You should call her.", 340, 370, 64, { g: st.line, mark: "should" });
+          st.tag = G(); await write("positive", 340, 442, 38, { g: st.tag, color: LEAD, dur: 280 });
         },
         async () => {
-          const st = deck[4].st;
-          await eraseGroups([st.sign, st.line, st.line.hl, st.tag].filter(Boolean), 120, 330, 1300, 180);
-          st.sign = G(); await write("-", 195, 436, 110, { center: true, g: st.sign, dur: 200 });
-          st.line = G(); await write("You shouldn't call her.", 340, 410, 64, { g: st.line, mark: "shouldn't" });
-          st.tag = G(); await write("negative", 340, 482, 38, { g: st.tag, color: LEAD, dur: 300 });
+          const st = deck[3].st;
+          await eraseGroups([st.sign, st.line, st.line.hl, st.tag].filter(Boolean), 120, 290, 1300, 180);
+          st.sign = G(); await write("-", 195, 396, 110, { center: true, g: st.sign, dur: 200 });
+          st.line = G(); await write("You shouldn't call her.", 340, 370, 64, { g: st.line, mark: "shouldn't" });
+          st.tag = G(); await write("negative", 340, 442, 38, { g: st.tag, color: LEAD, dur: 280 });
+          st.also = G(); await write("Also: ought not to, 'd better not", 340, 560, 40, { dur: 700, g: st.also });
         },
         async () => {
-          const st = deck[4].st;
-          await eraseGroups([st.sign, st.line, st.line.hl, st.tag].filter(Boolean), 120, 330, 1300, 180);
-          await write("?", 195, 446, 84, { center: true, dur: 260 });
-          await write("Should I call her?", 340, 410, 64, { mark: "Should" });
-          await write("question", 340, 482, 38, { color: LEAD, dur: 300 });
-          await arrow(420, 560, 420, 626);
-          await write("Yes, you should.  No, you shouldn't.", 340, 700, 46);
+          const st = deck[3].st;
+          await eraseGroups([st.sign, st.line, st.line.hl, st.tag, st.also].filter(Boolean), 120, 290, 1300, 320);
+          await write("?", 195, 406, 84, { center: true, dur: 240 });
+          await write("Should I call her?", 340, 370, 64, { mark: "Should" });
+          await write("question", 340, 442, 38, { color: LEAD, dur: 280 });
+          await write("Yes, you should.  No, you shouldn't.", 340, 600, 46);
         },
-      ] },
-    { steps: [
-        async () => { await heading("Positive: a good idea"); await formula("Subject + modal + base verb + complement"); },
-        () => form("You should drink more water.", "should", 390),
-        () => form("She ought to see a doctor.", "ought to", 530),
-        () => form("We'd better leave now.", "'d better", 670),
-        () => write("'d better is the short form of had better.", 110, 800, 32, { color: LEAD }),
-      ] },
-    { transition: "flip", steps: [
-        async () => { await heading("Negative: a bad idea"); await formula("Subject + modal + not + base verb + complement"); },
-        () => form("You shouldn't eat so much sugar.", "shouldn't", 390),
-        () => form("He ought not to drive so fast.", "ought not to", 530),
-        () => form("You'd better not be late!", "'d better not", 670),
-        () => write("Not goes between ought and to, and after better.", 110, 800, 32, { color: LEAD }),
-      ] },
-    { steps: [
-        async () => { await heading("Questions: asking for advice"); await formula("Should + subject + base verb + complement?"); },
-        async () => { await write("Should I call her?", 110, 400, 60, { mark: "Should" }); },
-        async () => { await write("Yes, you should.", 880, 368, 42); await write("No, you shouldn't.", 880, 432, 42); },
-        async () => { await write("What should I do?", 110, 620, 60, { mark: "should" }); },
-        async () => { await write("You should talk to her.", 880, 620, 42); },
-        () => write("In questions, we almost always use should.", 110, 800, 32, { color: LEAD }),
       ] },
     { steps: [
         () => heading("Real-life examples"),
-        ...[["I have a terrible headache.", "You should drink water and rest.", "should", 300],
-            ["I found a wallet on the street.", "You ought to return it.", "ought to", 440],
-            ["My bus leaves in five minutes!", "You'd better run!", "'d better", 580],
-            ["Should I text my ex?", "No, you shouldn't!", "shouldn't", 720]].flatMap(([p, a, mk, y]) => [
-          () => talk(p, y),
-          () => write(a, 860, y, 32, { mark: mk }),
-        ]),
+        ...[["I have a terrible headache.", "You should drink water and rest.", "should", 340],
+            ["I found a wallet on the street.", "You ought to return it.", "ought to", 500],
+            ["My bus leaves in five minutes!", "You'd better run!", "'d better", 660]].map(([p, a, mk, y]) => async () => {
+          await write(p, 110, y, 34);
+          await arrow(770, y - 12, 830, y - 12);
+          await wait(500);
+          await write(a, 860, y, 32, { mark: mk });
+        }),
       ] },
     { game: true, steps: [() => Game.lobby()] },
     { steps: [
         async () => {
-          await heading("Remember this");
-          for (const [txt, y] of [["They give advice: should, ought to, had better.", 280], ["Modal + base verb: no -s and no to.", 380], ["Negative: shouldn't, ought not to, 'd better not.", 480], ["Question: Should + subject + base verb?", 580]]) await write(txt, 110, y, 40, { dur: 700 });
-        },
-        async () => {
-          const t = await write("Thank you!", 800, 750, 96, { center: true });
-          await marker(t.x, 770, t.x + t.w, 16);
-          await write("Any questions?", 800, 840, 36, { center: true, color: LEAD });
+          const t = await write("Thank you!", 800, 400, 130, { center: true });
+          await marker(t.x, 430, t.x + t.w, 18);
+          await write("Any questions?", 800, 560, 46, { center: true, color: LEAD });
         },
       ] },
   ];
@@ -744,7 +712,7 @@ path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
   const FIREBASE_URL = "https://modals-for-giving-advice-default-rtdb.firebaseio.com";
   const params = new URLSearchParams(location.search);
   const DB = location.hostname === "localhost" && params.get("db") || FIREBASE_URL;
-  const CALLS = 5, SECONDS = 20;
+  const CALLS = 5, SECONDS = 15;
   const POOL = [
     { p: "I have a terrible toothache!", a: "You should see a dentist.", w: ["You should to see a dentist.", "You should seeing a dentist."], why: "Modal + base verb: no to, no -ing." },
     { p: "My brother never does his homework!", a: "He should do his homework.", w: ["He shoulds do his homework.", "He should does his homework."], why: "No -s on the modal or on the verb." },
@@ -872,6 +840,7 @@ path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
       await write("Play without phones", 610, 800, 28, { color: LEAD, dur: 300 });
       await drawPepe();
       showCounts();
+      speak("Hi! I'm Pepe! Scan the code and help me, please!");
       const join = new URL("play.html", location.href);
       join.search = ""; join.searchParams.set("room", room);
       if (DB !== FIREBASE_URL) join.searchParams.set("db", DB);
@@ -911,7 +880,7 @@ path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
       await write("Ring ring!", 1415, 236, 36, { center: true, dur: 240, g: bub });
       pepeG.canvas.classList.add("ring");
       Sound.ring(2);
-      await wait(2100);
+      await wait(1300);
       Sound.stopRing(); Sound.pick();
       pepeG.canvas.classList.remove("ring");
       bub.remove(); redraw(sheet);
