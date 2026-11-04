@@ -158,41 +158,33 @@ path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
       syl.forEach((s, i) => { const f = 430 + (s.charCodeAt(0) % 9) * 34 + Math.sin(i) * 60; tone(f, i * .085, .08, .1, "square"); tone(f * 1.5, i * .085, .07, .05); });
       setTimeout(end, syl.length * 85 + 120);
     }
-    let voices = [];
-    const loadVoices = () => { try { voices = window.speechSynthesis?.getVoices() || []; } catch (e) { voices = []; } };
-    loadVoices();
-    try { window.speechSynthesis?.addEventListener("voiceschanged", loadVoices); } catch (e) { /* older browser */ }
-    function pepeVoice() {
-      if (!voices.length) loadVoices();
-      const en = voices.filter((v) => /^en/i.test(v.lang));
-      return en.find((v) => v.localService && /Zira|David|Samantha|Fred|Alex|Karen|Daniel/i.test(v.name)) || en.find((v) => /Google US English/i.test(v.name)) || en.find((v) => v.localService) || en[0] || null;
-    }
-    let spoken = null;
-    function say(text, onStart, onEnd) {
+    const clips = {};
+    const loadClip = (name) => (clips[name] = clips[name] || fetch(`assets/voice/${name}.mp3`).then((r) => { if (!r.ok) throw new Error(name); return r.arrayBuffer(); }).then((b) => ac.decodeAudioData(b)));
+    const preload = (names) => { if (ac) names.forEach((n) => loadClip(n).catch(() => { delete clips[n]; })); };
+    let voice = null;
+    function say(name, text, onStart, onEnd) {
       let over = false;
       const end = () => { if (!over) { over = true; onEnd?.(); } };
       if (!ac || !on) return end();
       ac.resume?.();
+      hush();
       onStart?.();
-      const synth = window.speechSynthesis, voice = pepeVoice();
-      if (!synth || !voice) return blips(text, end);
-      const speakNow = () => {
-        let began = false;
-        const u = new SpeechSynthesisUtterance(text);
-        spoken = u;
-        u.voice = voice; u.lang = voice.lang; u.pitch = 1.8; u.rate = 1.1; u.volume = 1;
-        u.onstart = () => { began = true; };
-        u.onend = end;
-        u.onerror = (e) => { if (began || e.error === "canceled" || e.error === "interrupted") end(); else blips(text, end); };
-        synth.speak(u);
-        synth.resume?.();
-        setTimeout(() => { if (!began && !over && spoken === u) { u.onerror = u.onend = null; synth.cancel(); blips(text, end); } }, 1100);
-      };
-      if (synth.speaking || synth.pending) { synth.cancel(); setTimeout(speakNow, 90); } else speakNow();
+      const mine = {};
+      voice = mine;
+      loadClip(name).then((buffer) => {
+        if (voice !== mine) return end();
+        const src = ac.createBufferSource(), g = ac.createGain();
+        g.gain.value = 1.15;
+        src.buffer = buffer;
+        src.connect(g).connect(master);
+        src.onended = end;
+        mine.src = src;
+        src.start();
+      }).catch(() => { if (voice === mine) blips(text, end); else end(); });
     }
-    const hush = () => { try { window.speechSynthesis?.cancel(); } catch (e) { /* not available */ } };
+    const hush = () => { try { voice?.src?.stop(); } catch (e) { /* already ended */ } voice = null; };
     return {
-      init, ring, stopRing, say, hush,
+      init, ring, stopRing, say, hush, preload,
       tada: () => { if (ok()) [523, 659, 784, 1047].forEach((f, i) => tone(f, i * .13, .4, .13, "triangle")); },
       scratch: (v) => { if (ac) level(scrGain, v); },
       rub: (v) => { if (ac) level(rubGain, v); },
@@ -725,7 +717,7 @@ path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
     { p: "I eat junk food every day!", a: "You shouldn't eat so much junk food.", w: ["You should eat more junk food.", "You'd better eat junk food."], why: "Bad idea, so we use the negative." },
     { p: "The floor is wet and I'm running!", a: "You'd better be careful!", w: ["You'd better not be careful!", "You shouldn't be careful!"], why: "It's a warning: had better." },
     { p: "I'm really stressed!", a: "You should take a break.", w: ["You should takes a break.", "You should took a break."], why: "Always the base verb." },
-    { p: "I need ideas for my problem!", a: "What should I do?", w: ["What I should do?", "What do I should?"], why: "Wh- + should + subject + base verb." },
+    { p: "You need ideas. What do you ask?", ask: true, a: "What should I do?", w: ["What I should do?", "What do I should?"], why: "Wh- + should + subject + base verb." },
   ];
   const shuffled = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   function pepeParts(g) {
@@ -814,7 +806,8 @@ path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
         if (phones) await instant(clockG, `${Object.keys(data.answers?.["r" + i] || {}).length} of ${Object.keys(data.players || {}).length} answered`, 620, 136, 28, { color: LEAD });
       });
     }
-    const speak = (txt) => Sound.say(txt, () => pepeG?.canvas?.classList.add("talk"), () => pepeG?.canvas?.classList.remove("talk"));
+    const speak = (name, txt) => Sound.say(name, txt, () => pepeG?.canvas?.classList.add("talk"), () => pepeG?.canvas?.classList.remove("talk"));
+    const num = () => POOL.indexOf(q);
     async function drawPepe() {
       pepeG = G({ own: true });
       await draw(pepeParts(pepeG), { dur: 1100 });
@@ -840,7 +833,8 @@ path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
       await write("Play without phones", 610, 800, 28, { color: LEAD, dur: 300 });
       await drawPepe();
       showCounts();
-      speak("Hi! I'm Pepe! Scan the code and help me, please!");
+      Sound.preload(["intro", "winA", "winB", "tie", ...order.flatMap((c) => { const k = POOL.indexOf(c); return [`call${k}`, `right${k}`, `wrong${k}`]; })]);
+      speak("intro", "Hi! I'm Pepe! Scan the code and help me, please!");
       const join = new URL("play.html", location.href);
       join.search = ""; join.searchParams.set("room", room);
       if (DB !== FIREBASE_URL) join.searchParams.set("db", DB);
@@ -889,7 +883,7 @@ path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
       await line(1340, 276, 1324, 336, { w: 5 });
       opts = shuffled([q.a, ...q.w]); correct = opts.indexOf(q.a); localPick = null;
       await publish({ phase: "call", round: i, problem: q.p, opts, startedAt: { ".sv": "timestamp" } });
-      speak(`Hello?! This is Pepe! ${q.p} What should I do?`);
+      speak(`call${num()}`, `Hello?! This is Pepe! ${q.p}`);
       left = SECONDS; phase = "asking"; startedAt = 0;
       const t0 = performance.now();
       showClock();
@@ -943,7 +937,7 @@ path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
       await check(958, y + 62);
       showScores();
       await publish({ phase: "reveal", round: i, correct, why: q.why, scores });
-      speak(rate >= .5 ? `${q.a} Great advice, thank you!` : `Oh no! The right answer is: ${q.a}`);
+      speak(`${rate >= .5 ? "right" : "wrong"}${num()}`, q.a);
       await write(q.why, 110, 792, 28, { color: LEAD });
     }
     async function finish() {
@@ -960,7 +954,7 @@ path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
       await drawPepe();
       pepeG.canvas.classList.add("talk");
       Sound.tada(); party();
-      speak(win ? `Team ${win}, you are the best! Thank you for your advice!` : "It's a tie! You are all great! Thank you!");
+      speak(win ? `win${win}` : "tie", "You are the best! Thank you!");
       phase = "done";
     }
     async function go() { if (busy) { skip = true; pendingNext = true; return; } run(next); }
